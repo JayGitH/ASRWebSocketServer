@@ -130,11 +130,6 @@ async def handle_data_from_client(data: dict, ws: WebSocketCommonProtocol, sessi
         if locals().get(param_name, None) is None:
             raise ParametersException(f"Parameters '{param_name}' is missing")
 
-    if data.lower() == "eof":
-        # recognition end,
-        await ws.send(ResponseBody(code=200, message="Speech recognition finished", task_id=session_id).json())
-        await ws.close(200, "Speech recognition finished")
-        del clients[session_id]
 
     # publish to redis
     # 发送给redis
@@ -144,9 +139,18 @@ async def handle_data_from_client(data: dict, ws: WebSocketCommonProtocol, sessi
     await redis.publish(channel, TranscriptBody(
         task_id=session_id,
         result=data,
-        speech_type=status,
-        speech_id='auto'
+        status=status,
     ).json())
+
+    # todo maybe some bug here , closed the connection before transcription return
+    # todo here is a temporary solution
+    if data.lower() == "end":
+        # recognition end.
+        # to prevent the close before transcription return. so the temporary solution is waiting
+        await asyncio.sleep(5)
+        await ws.send(ResponseBody(code=200, message="Speech recognition finished", task_id=session_id).json())
+        await ws.close(200, "Speech recognition finished")
+        del clients[session_id]
 
 
 async def deliver_data_from_redis_to_client():
@@ -198,14 +202,14 @@ async def send_data_to_client_on_one_channel(channel: str):
                 speech_id = output["speech_id"]
                 task_id = output["task_id"]
                 result = output["result"]
-                _type = output["type"]
+                status = output["status"]
 
-                if _type in ("final"):
+                if status in ("final", "disconnect", "partial", "error", "end"):
                     ws_client = clients.get(task_id, None)
                     logger.debug(f"now client is  {task_id}, read to send message")
                     if ws_client is None:
                         logger.debug(f"client list : {clients}")
-                        logger.info(f"sid: {task_id} is not exist")
+                        logger.warning(f"sid: {task_id} is not exist")
                         continue
                     if ws_client.closed:
                         logger.info(f"client id: {task_id} is closed")
@@ -217,9 +221,11 @@ async def send_data_to_client_on_one_channel(channel: str):
                                                       task_id=task_id,
                                                       data=TranscriptBody(task_id=task_id,
                                                                           result=result,
-                                                                          speech_type=_type,
+                                                                          status=status,
                                                                           speech_id=speech_id
                                                                           ).json()).json())
+                else:
+                    logger.warning(f"receive type invalid: {status}")
         await asyncio.sleep(0.01)
 
     await pubsub.unsubscribe(channel)
@@ -228,10 +234,5 @@ async def send_data_to_client_on_one_channel(channel: str):
 
 
 if __name__ == "__main__":
-    # thrd = threading.Thread(
-    #     target=deliver_data_from_redis_to_client,
-    #     name="AsyncIO Thread"
-    # )
-    # thrd.start()
     app.add_task(deliver_data_from_redis_to_client)
     app.run(host="0.0.0.0", port=8000, debug=True)
