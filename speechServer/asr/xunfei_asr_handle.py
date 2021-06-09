@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-# @Time  : 2021/6/9 2:31
+# @Time  : 2021/5/25 17:36
 # @Author : lovemefan
 # @Email : lovemefan@outlook.com
-# @File : xunfeiasr_handle_example.py
+# @File : xunfei_asr.py
 import sys
 import hashlib
 from hashlib import sha1
@@ -10,6 +10,8 @@ import hmac
 import base64
 from socket import *
 import json, time, threading
+
+import aioredis
 from websocket import create_connection
 import websocket
 from urllib.parse import quote
@@ -17,16 +19,22 @@ import logging
 
 # reload(sys)
 # sys.setdefaultencoding("utf8")
+from speechServer.config import REDIS_URL, app_id, api_key
+
 logging.basicConfig()
 
 base_url = "ws://rtasr.xfyun.cn/v1/ws"
-app_id = "*****"
-api_key = "********"
+
 file_path = r"./test_1.pcm"
 
 pd = "edu"
 
 end_tag = "{\"end\": true}"
+
+# 储存客户端
+clients = dict()
+
+redis = aioredis.from_url(REDIS_URL)
 
 
 class XunFeiASR():
@@ -80,9 +88,7 @@ class XunFeiASR():
 
                 if result_dict["action"] == "result":
                     result_1 = result_dict
-                    # result_2 = json.loads(result_1["cn"])
-                    # result_3 = json.loads(result_2["st"])
-                    # result_4 = json.loads(result_3["rt"])
+
                     print("rtasr result: " + result_1["data"])
 
                 if result_dict["action"] == "error":
