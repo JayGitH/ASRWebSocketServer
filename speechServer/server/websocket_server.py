@@ -139,7 +139,6 @@ async def handle_data_from_client(data: dict, ws: WebSocketCommonProtocol, sessi
     # publish to redis
     # 发送给redis
     language_code_list = json.loads(str(await redis.get("languages_code"), encoding='utf-8'))
-    print(language_code_list)
     logger.debug(f"load language list: {language_code_list}")
     channel = language_code_list.get(language_code, {"engine": "google"}).get("engine")
     await redis.publish(channel, TranscriptBody(
@@ -193,20 +192,17 @@ async def send_data_to_client_on_one_channel(channel: str):
     while True:
         message = await pubsub.get_message(ignore_subscribe_messages=True)
         if message is not None:
-            print(f"(Reader) Message Received: {message}")
+            logger.info(f"Redis Message Received: {message}")
             if message["type"] == "message":
                 output = json.loads(message['data'])
-                print(output)
                 speech_id = output["speech_id"]
                 task_id = output["task_id"]
                 result = output["result"]
                 _type = output["type"]
 
                 if _type in ("final"):
-                    logger.info("收到redis的结果{result}个字符".format(result=len(result)))
-
                     ws_client = clients.get(task_id, None)
-                    print(f"now client is  {ws_client}, read to send message")
+                    logger.debug(f"now client is  {task_id}, read to send message")
                     if ws_client is None:
                         logger.debug(f"client list : {clients}")
                         logger.info(f"sid: {task_id} is not exist")
