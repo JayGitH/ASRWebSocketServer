@@ -47,4 +47,4 @@ if __name__ == '__main__':
     # r.setnx("languages_code", json.dumps(languages_code))
     # r.setnx("ALL_CHANNELS", json.dumps(ALL_CHANNELS))
     for i in range(2):
-        r.publish(IFLY_ASR_RESULT_CHANNEL, TranscriptBody(result=f'hi {i}', task_id=1402297266097758208, speech_id='auto', speech_type='final').json())
+        r.publish(IFLY_ASR_RESULT_CHANNEL, TranscriptBody(result=f'hi {i}', task_id=1402442997366398976, speech_id='auto', speech_type='final').json())
