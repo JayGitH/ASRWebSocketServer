@@ -23,7 +23,7 @@ class TranscriptBody:
         self.task_id = task_id
 
         if speech_id == 'auto':
-            self.speech_id = f"yuntrans-{str(hex(IdWorker().get_id()))}"
+            self.speech_id = f"yuntrans@" + str(hex(IdWorker().get_id())).replace('0x', '')
         else:
             self.speech_id = speech_id
 
