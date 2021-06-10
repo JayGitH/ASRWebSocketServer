@@ -37,7 +37,7 @@ ws://localhost:8000/v1/asr?date=&appkey=&signature=
 signature_origin  string is here
 
 ```
-host: yuntrans.vip
+host: lovemefan.top
 date: 1623208573
 appkey: 15954435476c6542ebcf1270cbba98e5
 GET /v1/asr  
