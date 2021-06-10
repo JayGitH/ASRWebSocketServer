@@ -216,18 +216,18 @@ async def send_data_to_client_on_one_channel(channel: str):
                         logger.warning(f"sid: {task_id} is not exist")
                         continue
                     if ws_client.closed:
-                        logger.info(f"client id: {task_id} is closed")
-                        clients.pop(task_id)
+                        logger.info(f"client id: {task_id} closed the connection")
+                        del clients[task_id]
                         continue
 
                     await ws_client.send(ResponseBody(code=200,
-                                                      message="SUCCESS",
+                                                      message="SUCCESS" if status != "ERROR" else "ERROR",
                                                       task_id=task_id,
                                                       data=TranscriptBody(task_id=task_id,
                                                                           result=result,
                                                                           status=status,
                                                                           speech_id=speech_id
-                                                                          ).json()).json())
+                                                                          ).__dict__()).json())
                 else:
                     logger.warning(f"receive type invalid: {status}")
         await asyncio.sleep(0.01)
