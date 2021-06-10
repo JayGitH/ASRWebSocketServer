@@ -20,22 +20,22 @@ class TranscriptBody:
             status (str): [final,partial,error,end]
             each sentence conclude text and timestamp information.
         """
-        self.__task_id = task_id
+        self.task_id = task_id
 
         if speech_id == 'auto':
-            self.__speech_id = f"yuntrans-{IdWorker().get_id()}"
+            self.speech_id = f"yuntrans-{str(hex(IdWorker().get_id()))}"
         else:
-            self.__speech_id = speech_id
+            self.speech_id = speech_id
 
-        self.__result = result
-        self.__status = status
+        self.result = result
+        self.status = status
 
     def __dict__(self):
         return {
-            "task_id": self.__task_id,
-            "speech_id": self.__speech_id,
-            "status": self.__status,
-            "result": self.__result
+            "task_id": self.task_id,
+            "speech_id": self.speech_id,
+            "status": self.status,
+            "result": self.result
         }
 
     def json(self):

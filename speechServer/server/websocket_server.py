@@ -11,6 +11,7 @@ from sanic.log import logger
 from websockets.legacy.protocol import WebSocketCommonProtocol
 from speechServer.config import *
 from speechServer.exception.ParameterException import ParametersException
+from speechServer.pojo.AudioBody import AudioBody
 from speechServer.pojo.ResponseBody import ResponseBody
 from speechServer.pojo.TranscriptBody import TranscriptBody
 from speechServer.utils.SignatureUtils import check_signature
@@ -54,7 +55,7 @@ async def handle(request, ws):
                 # 处理接受到的数据
                 message = await asyncio.wait_for(ws.recv(), timeout=WEBSOCKETS_TIME_OUT)
 
-                logger.info(f"client-{session_id} send message: {message}")
+                logger.info(f"{[request]} client-{session_id} send message: {message}")
 
                 # todo 待加入 帧 ping 支持
                 if message.lower() == "ping":
@@ -120,7 +121,7 @@ async def handle_data_from_client(data: dict, ws: WebSocketCommonProtocol, sessi
 
     # validate data
     language_code = data.get("language_code", None)
-    audio_format = data.get("format", None)
+    audio_format = data.get("audio_format", None)
     status = data.get("status", None)
     data = data.get("data", None)
 
@@ -136,9 +137,12 @@ async def handle_data_from_client(data: dict, ws: WebSocketCommonProtocol, sessi
     language_code_list = json.loads(str(await redis.get("languages_code"), encoding='utf-8'))
     logger.debug(f"load language list: {language_code_list}")
     channel = language_code_list.get(language_code, {"engine": "google"}).get("engine")
-    await redis.publish(channel, TranscriptBody(
+    logger.info(f"send data on channel: {channel}")
+    await redis.publish(channel, AudioBody(
         task_id=session_id,
-        result=data,
+        language_code=language_code,
+        audio_format=audio_format,
+        data=data,
         status=status,
     ).json())
 
@@ -204,7 +208,7 @@ async def send_data_to_client_on_one_channel(channel: str):
                 result = output["result"]
                 status = output["status"]
 
-                if status in ("final", "disconnect", "partial", "error", "end"):
+                if status in ("final", "start", "partial", "error", "end"):
                     ws_client = clients.get(task_id, None)
                     logger.debug(f"now client is  {task_id}, read to send message")
                     if ws_client is None:

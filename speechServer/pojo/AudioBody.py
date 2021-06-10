@@ -16,19 +16,19 @@ class AudioBody:
             status (str): [`start`, `end`]
             data (str): binary data
         """
-        self.__language_code = language_code
-        self.__audio_format = audio_format
-        self.__status = status
-        self.__data = data
-        self.__task_id = task_id
+        self.language_code = language_code
+        self.audio_format = audio_format
+        self.status = status
+        self.data = data
+        self.task_id = task_id
 
     def __dict__(self):
         return {
-            "language_code": self.__language_code,
-            "audio_format": self.__audio_format,
-            "status": self.__status,
-            "data": self.__data,
-            "task_id": self.__task_id
+            "language_code": self.language_code,
+            "audio_format": self.audio_format,
+            "status": self.status,
+            "data": self.data,
+            "task_id": self.task_id
         }
 
     def json(self):
