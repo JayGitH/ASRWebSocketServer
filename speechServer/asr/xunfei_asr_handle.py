@@ -69,11 +69,13 @@ class XunFeiASR:
         :return:
         """
         count = 0
+        # 重试机制
         while self.websocket and count < 10:
             if not self.websocket.closed:
-                if body.status == "start" or "partial":
+                logger.debug(f"sending messages , status is :{body.status}")
+                if body.status in ("start", "partial", "final"):
                     await self.websocket.send_bytes(base64.b64decode(body.data))
-                else:
+                elif body.status == "end":
                     await self.websocket.send_bytes(bytes(end_tag.encode('utf-8')))
                 break
             else:
@@ -87,7 +89,7 @@ class XunFeiASR:
                 self.websocket = websocket
                 while True:
                     result = await websocket.receive()
-                    print(result)
+
                     if result.type == WSMsgType.TEXT:
 
                         result_dict = json.loads(result.data)
@@ -97,19 +99,22 @@ class XunFeiASR:
                             status = "start"
                         elif result_dict["action"] == "result":
                             status = "partial" if str(json.loads(result_dict["data"])["cn"]["st"]["type"]) == "1" else "final"
+                        elif result_dict["action"] == "end":
+                            status = "end"
                         else:
                             status = "error"
 
-                        await redis.publish(IFLY_ASR_RESULT_CHANNEL,
-                                            TranscriptBody(
-                                                task_id=self.task_id,
-                                                status=status,
-                                                # generate speech id
-                                                speech_id='auto',
-                                                result=json.dumps(result_dict["data"])
-                                            ).json())
+                        if status in ("start", "partial", "final"):
+                            result = "" if len(result_dict["data"]) == 0 else json.loads(result_dict["data"])
+                            await redis.publish(IFLY_ASR_RESULT_CHANNEL,
+                                                TranscriptBody(
+                                                    task_id=self.task_id,
+                                                    status=status,
+                                                    # generate speech id
+                                                    speech_id='auto',
+                                                    result=result).json())
 
-                        if status == "error":
+                        elif status in ("error", "end"):
                             logger.warning(f"rtasr error: {result}")
                             await redis.publish(IFLY_ASR_RESULT_CHANNEL,
                                                 TranscriptBody(
@@ -123,7 +128,7 @@ class XunFeiASR:
                             break
 
                     elif result.type == WSMsgType.closed:
-                        print(result.data)
+
                         print('server closed the connection')
                         break
                     elif result.type == WSMsgType.error:
@@ -140,7 +145,6 @@ async def deliver_data_from_redis_to_asr_engine():
     await pubsub.subscribe(IFLY_AUDIO_CHANNEL)
     while True:
         try:
-
             message = await pubsub.get_message(ignore_subscribe_messages=True)
             if message is not None:
                 logger.info(f"Redis Message Received: {message}")
@@ -152,13 +156,24 @@ async def deliver_data_from_redis_to_asr_engine():
                     data = output["data"]
                     task_id = output["task_id"]
 
-                    if status in ("start", "partial", "end"):
+                    if status in ("start", "partial", "end", "final"):
+                        if status == "end":
+                            await asyncio.sleep(0.04)
+                            await clinet.send_audio_body(AudioBody(status=status,
+                                                                   data=data,
+                                                                   language_code=language_code,
+                                                                   audio_format=audio_format,
+                                                                   task_id=task_id))
+                            continue
 
                         clinet: XunFeiASR = clients.get(task_id, None)
                         if status == "start":
                             if clinet is None:
                                 clients[task_id]: XunFeiASR = XunFeiASR(task_id)
+                                clinet = clients[task_id]
                                 asyncio.create_task(clients[task_id].recv())
+
+
 
                         logger.debug(f"now client is  {task_id}, read to send message")
                         if clinet is None:
@@ -174,10 +189,7 @@ async def deliver_data_from_redis_to_asr_engine():
                                                                    task_id=task_id))
                             await asyncio.sleep(0.04)
 
-                        if status == "end":
-                            clinet = clients.get(task_id, None)
-                            if clinet is not None:
-                                del clients[task_id]
+
                     else:
                         await redis.pubsub(IFLY_ASR_RESULT_CHANNEL,
                                            TranscriptBody(
@@ -188,6 +200,7 @@ async def deliver_data_from_redis_to_asr_engine():
 
         except Exception as e:
             logger.warning(traceback.format_exc())
+            print(traceback.format_exc())
 
 
 if __name__ == '__main__':

@@ -40,9 +40,18 @@ async def catch_anything(request, exception):
 async def handle(request, ws):
     args = request.args
     session_id = IdWorker().get_id()
+    app_key = args.get('appkey', None)
+    if app_key is None:
+        await ws.close()
+
+    secret = await redis.get(app_key)
+
+    if secret is None:
+        await ws.send(ResponseBody(code=401, message="Unauthorized", task_id=session_id).json())
+        await ws.close(401, "Unauthorized")
 
     # check_signature 鉴权算法查看文档
-    if check_signature(args, request.host, request.path):
+    if check_signature(args, request.host, request.path, secret):
 
         while True:
 
@@ -101,7 +110,7 @@ async def handle(request, ws):
                 break
     else:
         logger.info(f"{request}")
-        await ws.send(ResponseBody(code=401, message="Unauthorized", task_id=session_id).json())
+        await ws.send(ResponseBody(code=401, message="Unauthorized or Timeout", task_id=session_id).json())
         await ws.close(401, "Unauthorized")
 
 
