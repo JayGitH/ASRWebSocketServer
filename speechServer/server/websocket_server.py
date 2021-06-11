@@ -42,7 +42,7 @@ async def handle(request, ws):
     session_id = IdWorker().get_id()
 
     # check_signature 鉴权算法查看文档
-    if check_signature(args):
+    if check_signature(args, request.host, request.path):
 
         while True:
 
@@ -146,15 +146,14 @@ async def handle_data_from_client(data: dict, ws: WebSocketCommonProtocol, sessi
         status=status,
     ).json())
 
-    # todo maybe some bug here , closed the connection before transcription return
-    # todo here is a temporary solution
-    if data.lower() == "end":
-        # recognition end.
-        # to prevent the close before transcription return. so the temporary solution is waiting
-        await asyncio.sleep(5)
-        await ws.send(ResponseBody(code=200, message="Speech recognition finished", task_id=session_id).json())
-        await ws.close(200, "Speech recognition finished")
-        del clients[session_id]
+    # # todo maybe some bug here , closed the connection before transcription return
+    # # todo here is a temporary solution
+    # if data.lower() == "end":
+    #     # recognition end.
+    #     # to prevent the close before transcription return. so the temporary solution is waiting
+    #     await ws.send(ResponseBody(code=200, message="Speech recognition finished", task_id=session_id).json())
+    #     await ws.close(200, "Speech recognition finished")
+    #     del clients[session_id]
 
 
 async def deliver_data_from_redis_to_client():

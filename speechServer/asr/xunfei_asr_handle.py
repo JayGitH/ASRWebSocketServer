@@ -10,10 +10,13 @@ import base64
 import json, time, threading
 import traceback
 
+import aiohttp
 import aioredis
 import websockets
 from urllib.parse import quote
 import logging
+
+from aiohttp import WSMsgType
 
 from speechServer.config import REDIS_URL, app_id, api_key
 from speechServer.pojo.AudioBody import AudioBody
@@ -42,6 +45,7 @@ redis = aioredis.from_url(REDIS_URL)
 
 
 class XunFeiASR:
+
     def __init__(self, task_id):
         ts = str(int(time.time()))
         tt = (app_id + ts).encode('utf-8')
@@ -55,9 +59,8 @@ class XunFeiASR:
         signa = base64.b64encode(signa)
         signa = str(signa, 'utf-8')
         self.task_id = task_id
-        self.ws_connect = websockets.connect(base_url + "?appid=" + app_id + "&ts=" + ts + "&signa=" + quote(signa))
-        # self.trecv = threading.Thread(target=self.recv)
-        # self.trecv.start()
+        self.ws_connect = aiohttp.ClientSession().ws_connect(base_url + "?appid=" + app_id + "&ts=" + ts + "&signa=" + quote(signa))
+        self.websocket = None
 
     async def send_audio_body(self, body: AudioBody):
         """
@@ -65,49 +68,66 @@ class XunFeiASR:
         :param body:
         :return:
         """
-        async with self.ws_connect as websocket:
-            if body.status == "start" or "partial":
-                await websocket.send(base64.b64decode(body.data))
+        count = 0
+        while self.websocket and count < 10:
+            if not self.websocket.closed:
+                if body.status == "start" or "partial":
+                    await self.websocket.send_bytes(base64.b64decode(body.data))
+                else:
+                    await self.websocket.send_bytes(bytes(end_tag.encode('utf-8')))
+                break
             else:
-                await websocket.send(bytes(end_tag.encode('utf-8')))
+                logger.warning(f"websocket closed by asr server")
+            count += 1
+            await asyncio.sleep(0.01)
 
     async def recv(self):
         try:
             async with self.ws_connect as websocket:
-                while not websocket.closed:
-                    result = await websocket.recv()
+                self.websocket = websocket
+                while True:
+                    result = await websocket.receive()
                     print(result)
-                    result_dict = json.loads(result)
-                    logger.debug(f"xunfei receive: {result_dict}")
-                    # 解析结果
-                    if result_dict["action"] == "started":
-                        status = "start"
-                    elif result_dict["action"] == "result":
-                        status = "final" if result_dict["data"]["cn"]["st"]["type"] == 1 else "partial"
-                    else:
-                        status = "error"
+                    if result.type == WSMsgType.TEXT:
 
-                    await redis.publish(IFLY_ASR_RESULT_CHANNEL,
-                                        TranscriptBody(
-                                            task_id=self.task_id,
-                                            status=status,
-                                            # generate speech id
-                                            speech_id='auto',
-                                            result=json.dumps(result_dict["data"])
-                                        ).json())
+                        result_dict = json.loads(result.data)
+                        logger.debug(f"xunfei receive: {result_dict}")
+                        # 解析结果
+                        if result_dict["action"] == "started":
+                            status = "start"
+                        elif result_dict["action"] == "result":
+                            status = "partial" if str(json.loads(result_dict["data"])["cn"]["st"]["type"]) == "1" else "final"
+                        else:
+                            status = "error"
 
-                    if status == "error":
-                        logger.warning("rtasr error: " + result)
                         await redis.publish(IFLY_ASR_RESULT_CHANNEL,
                                             TranscriptBody(
                                                 task_id=self.task_id,
                                                 status=status,
                                                 # generate speech id
                                                 speech_id='auto',
-                                                result=result_dict["desc"]
+                                                result=json.dumps(result_dict["data"])
                                             ).json())
-                        await websocket.close()
-                        return
+
+                        if status == "error":
+                            logger.warning(f"rtasr error: {result}")
+                            await redis.publish(IFLY_ASR_RESULT_CHANNEL,
+                                                TranscriptBody(
+                                                    task_id=self.task_id,
+                                                    status=status,
+                                                    # generate speech id
+                                                    speech_id='auto',
+                                                    result=result_dict["desc"]
+                                                ).json())
+                            await websocket.close()
+                            break
+
+                    elif result.type == WSMsgType.closed:
+                        print(result.data)
+                        print('server closed the connection')
+                        break
+                    elif result.type == WSMsgType.error:
+                        break
 
         except Exception as e:
             logger.warning(traceback.format_exc())
@@ -134,12 +154,12 @@ async def deliver_data_from_redis_to_asr_engine():
 
                     if status in ("start", "partial", "end"):
 
-                        if status == "start":
-                            clients[task_id]: XunFeiASR = XunFeiASR(task_id)
-                            task = asyncio.create_task(clients[task_id].recv())
-                            await task
-
                         clinet: XunFeiASR = clients.get(task_id, None)
+                        if status == "start":
+                            if clinet is None:
+                                clients[task_id]: XunFeiASR = XunFeiASR(task_id)
+                                asyncio.create_task(clients[task_id].recv())
+
                         logger.debug(f"now client is  {task_id}, read to send message")
                         if clinet is None:
                             logger.debug(f"client list : {clients}")

@@ -44,19 +44,23 @@ async def send_file(filepath: str):
         async with websockets.connect(uri) as websocket:
             asyncio.create_task(recv(websocket))
             count = 0
+            finished = 0
             while True:
                 chunk = file.read(1280)
-                data = base64.b64encode(chunk).decode('utf-8')
+                data = base64.b64encode(chunk).decode()
 
                 if not chunk:
                     status = 'end'
-                    await websocket.send(AudioBody(
-                        language_code='zh',
-                        audio_format='wav/16000',
-                        status=status,
-                        data=data).json())
-                    # 5秒之后关闭连接
-                    await asyncio.sleep(10)
+                    if finished == 0:
+                        await websocket.send(AudioBody(
+                            language_code='zh',
+                            audio_format='wav/16000',
+                            status=status,
+                            data=data).json())
+
+                        finished = 1
+                    # 等待关闭连接
+                    await asyncio.sleep(3)
                     continue
 
                 if count == 0:
@@ -71,8 +75,9 @@ async def send_file(filepath: str):
                     data=data).json())
 
                 count += 1
-
-
+            # waitting closed by server
+            while not websocket.closed:
+                await asyncio.sleep(2)
 
 
 async def recv(ws):
@@ -82,8 +87,7 @@ async def recv(ws):
             print(result)
             await asyncio.sleep(0.01)
     except websockets.exceptions.ConnectionClosedOK:
-        print(traceback.format_exc())
-        print("websocket connection closed")
+        print("websocket connection closed, task finished")
     except ConnectionResetError:
         print('server is not available')
 
