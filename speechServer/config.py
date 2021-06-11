@@ -16,8 +16,12 @@ GOOGLE_AUDIO_CHANNEL = "google_audios"
 
 
 # --- websocket --
-WEBSOCKETS_TIME_OUT = 300
+WEBSOCKETS_TIME_OUT = 30
 RECEIVE_DATA_TIME_OUT = 5
 LANGUAGES_CODE = {
     ""
 }
+
+# -- system --
+# second
+WEBSOCKETS_SURVIVAL_TIME = 120
