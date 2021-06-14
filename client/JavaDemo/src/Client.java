@@ -273,7 +273,8 @@ class TestWebScoket {
                 String status = "start";
                 while ((len = raf.read(bytes)) != -1) {
                     if (len < client.CHUNCKED_SIZE) {
-                        client.send(wsClient, bytes = Arrays.copyOfRange(bytes, 0, len));
+                        AudioBody body = new AudioBody("zh", "wav/16000", status, new String(Base64.encodeBase64(Arrays.copyOfRange(bytes, 0, len))));
+                        client.send(wsClient, body.getBytes());
                         break;
                     }
 
@@ -286,9 +287,9 @@ class TestWebScoket {
                             System.out.println("error time interval: " + s + " ms");
                         }
                     }
-
                     AudioBody body = new AudioBody("zh", "wav/16000", status, new String(Base64.encodeBase64(bytes)));
-                    System.out.println(body);
+
+
                     client.send(wsClient, body.getBytes());
                     // 每隔40毫秒发送一次数据
                     Thread.sleep(40);
@@ -296,8 +297,8 @@ class TestWebScoket {
                 }
 
                 // 发送结束标识
-                AudioBody body = new AudioBody("zh", "wav/16000", "end", "");
-                System.out.println(body);
+                AudioBody body = new AudioBody("zh", "wav/16000", "end", "none");
+
                 client.send(wsClient, body.getBytes());
                 System.out.println(client.getCurrentTimeStr() + "\t发送结束完成");
             } catch (Exception e) {
