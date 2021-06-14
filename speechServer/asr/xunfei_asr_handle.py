@@ -105,7 +105,17 @@ class XunFeiASR:
                             status = "error"
 
                         if status in ("start", "partial", "final"):
-                            result = "" if len(result_dict["data"]) == 0 else json.loads(result_dict["data"])
+                            # result = "" if len(result_dict["data"]) == 0 else json.loads(result_dict["data"])
+
+                            if len(result_dict["data"]) == 0:
+                                result = ""
+                            else:
+                                data = json.loads(result_dict["data"])["cn"]["st"]["rt"][0]["ws"]
+                                result = ""
+                                for i in data:
+                                    for w in i["cw"]:
+                                        result += w["w"]
+
                             await redis.publish(IFLY_ASR_RESULT_CHANNEL,
                                                 TranscriptBody(
                                                     task_id=self.task_id,
