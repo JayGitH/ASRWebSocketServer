@@ -18,7 +18,7 @@ python websocket_server.py
 
 ### 1.1 Client
 
-more detail in [document]()
+more detail in [document](https://450489712.gitbook.io/asr-websocket-service/)
 
 Here is :
 
