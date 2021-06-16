@@ -41,7 +41,7 @@ end_tag = "{\"end\": true}"
 # 储存客户端
 clients = dict()
 
-redis = aioredis.from_url(REDIS_URL)
+redis = aioredis.from_url(REDIS_URL,password="xiaoyu")
 
 
 class XunFeiASR:
@@ -207,7 +207,8 @@ async def deliver_data_from_redis_to_asr_engine():
                                                status="error",
                                                result="status is not correct"
                                            ).json())
-
+            else:
+                await asyncio.sleep(1)
         except Exception as e:
             logger.warning(traceback.format_exc())
             print(traceback.format_exc())
