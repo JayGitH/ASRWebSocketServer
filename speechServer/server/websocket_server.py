@@ -5,10 +5,10 @@
 # @File : websocket_server.py
 import json
 import sanic
-from sanic import Sanic
+from sanic import Sanic, text
 import asyncio
 from sanic.log import logger
-from websockets.legacy.protocol import WebSocketCommonProtocol
+# from websockets.legacy.protocol import WebSocketCommonProtocol
 from speechServer.config import *
 from speechServer.exception.ParameterException import ParametersException
 from speechServer.pojo.AudioBody import AudioBody
@@ -28,12 +28,17 @@ app.config.WEBSOCKET_TIMEOUT = 10
 # 储存客户端
 clients = dict()
 
-redis = aioredis.from_url(REDIS_URL)
+redis = aioredis.from_url(REDIS_URL, password="xiaoyu")
 
 
 @app.exception(sanic.exceptions.ServerError)
 async def catch_anything(request, exception):
     pass
+
+
+@app.get("/test")
+async def test(request):
+    return text("hello\n")
 
 
 @app.websocket("/asr", version=1)
@@ -42,17 +47,16 @@ async def handle(request, ws):
     session_id = IdWorker().get_id()
     app_key = args.get('appkey', None)
     if app_key is None:
-        await ws.close()
+        await ws.close(1000, "Parameters error")
 
     secret = await redis.get(app_key)
 
     if secret is None:
         await ws.send(ResponseBody(code=401, message="Unauthorized", task_id=session_id).json())
-        await ws.close(401, "Unauthorized")
-
+        await ws.close(1000, "Unauthorized")
+    current_language_code = None
     # check_signature 鉴权算法查看文档
     if check_signature(args, request.host, request.path, secret):
-
         while True:
 
             # 将客户端注册到系统里面，即加入到client 字典中
@@ -64,7 +68,7 @@ async def handle(request, ws):
                 # 处理接受到的数据
                 message = await asyncio.wait_for(ws.recv(), timeout=WEBSOCKETS_TIME_OUT)
 
-                logger.info(f"{[request]} client-{session_id} send message: {message}")
+                logger.info(f"{[request.ip]} client-{session_id} send message: {message}")
 
                 # todo 待加入 帧 ping 支持
                 if message.lower() == "ping":
@@ -76,6 +80,7 @@ async def handle(request, ws):
                     # handle the messages except heartbeats
                     # 处理数据
                     data = json.loads(message)
+                    current_language_code = data.get("language_code", None)
                     await handle_data_from_client(data, ws, session_id)
 
             except asyncio.TimeoutError:
@@ -83,7 +88,17 @@ async def handle(request, ws):
                 # 处理超时
                 del clients[session_id]
                 await ws.send(ResponseBody(code=408, message="Connection Timeout", task_id=session_id).json())
-                await ws.close(408, "TIMEOUT")
+                #
+                if current_language_code:
+                    await redis.publish(channel, AudioBody(
+                        task_id=session_id,
+                        language_code=current_language_code,
+                        audio_format="wav/16000",
+                        data="",
+                        status="end",
+                    ).json())
+
+                await ws.close(1000, "TIMEOUT")
                 break
 
             except asyncio.exceptions.CancelledError:
@@ -94,27 +109,36 @@ async def handle(request, ws):
 
                 if not ws.closed:
                     await ws.send(ResponseBody(code=403, message="The websocket disconnect", task_id=session_id).json())
-                    await ws.close(403, "The websocket disconnect")
+                    await ws.close(1000, "The websocket disconnect")
+                    if current_language_code:
+                        await redis.publish(channel, AudioBody(
+                            task_id=session_id,
+                            language_code=current_language_code,
+                            audio_format="wav/16000",
+                            data="",
+                            status="end",
+                        ).json())
                 break
 
             except json.decoder.JSONDecodeError:
                 del clients[session_id]
+                print(message)
                 await ws.send(ResponseBody(code=403, message="The data must be json format", task_id=session_id).json())
-                await ws.close(403, "the String must be json format")
+                await ws.close(1000, "the String must be json format")
                 break
 
             except ParametersException as param_exception:
                 del clients[session_id]
                 await ws.send(ResponseBody(code=403, message=param_exception.__str__(), task_id=session_id).json())
-                await ws.close(403, param_exception.__str__())
+                await ws.close(1000, param_exception.__str__())
                 break
     else:
         logger.info(f"{request}")
         await ws.send(ResponseBody(code=401, message="Unauthorized or Timeout", task_id=session_id).json())
-        await ws.close(401, "Unauthorized")
+        await ws.close(1000, "Unauthorized")
 
 
-async def handle_data_from_client(data: dict, ws: WebSocketCommonProtocol, session_id):
+async def handle_data_from_client(data: dict, ws, session_id):
     """
     handle the data from client
     处理客户端的数据
@@ -243,6 +267,7 @@ async def send_data_to_client_on_one_channel(channel: str):
     await pubsub.unsubscribe(channel)
     await pubsub.close()
     logger.info(f"This is channel: {channel}, subscribe redis finished")
+
 
 
 if __name__ == "__main__":
