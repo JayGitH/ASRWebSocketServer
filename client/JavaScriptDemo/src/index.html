@@ -5,47 +5,35 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <title>Document</title>
+  <title>Yuntrans 流式语音识别</title>
   <link href="index.css" type="text/css" rel="stylesheet"></link>
 </head>
 
-<body>
-<div>
-  <div class="service-item service-item-taste">
-    <h2 class="service-item-title">Yuntrans 流式语音识别</h2>
-    <div class="service-item-content service-item-taste-content">
-      <div class="taste-content">
-        <button class="taste-button ready-button" id="taste_button">开始转写</button>
+<body class="bg-gray-100">
+<div class=" p-52 h-auto">
+  <div class="bg-white p-10  flex-col  items-center shadow-xl overflow-hidden sm:rounded-xl">
+    <div class="text-4xl  font-semibold">Yuntrans 流式语音识别</div>
+    <div class="h-18 flex-auto">
+      <div class="p-5">
+        <button class="text-white p-3 rounded-xl shadow-xl bg-gray-600  font-serif " id="taste_button">开始转写</button>
       </div>
-      <div class="start-taste">
-        <div class="start-taste-left">
-          <div class="time-box">
-            <span class="start-taste-line">
-              <hr class="hr hr1">
-              <hr class="hr hr2">
-              <hr class="hr hr3">
-              <hr class="hr hr4">
-              <hr class="hr hr5">
-              <hr class="hr hr6">
-              <hr class="hr hr7">
-              <hr class="hr hr8">
-              <hr class="hr hr9">
-              <hr class="hr hr10">
-            </span>
-            <span class="total-time"><span class="used-time">00: 00</span></span></span>
-          </div>
-          <div class="start-taste-button">
-            <button class="taste-button start-button">结束转写</button>
-          </div>
+      <div class="p-5">
+        <div class="text-gray-600  font-semibold">
+          
+            <span class="font-semibold ml-4"><span class="used-time">00: 00</span></span></span>
         </div>
-        <div class="output-box" id="result_output"></div>
+        <div class="mt-3">
+            <button class="text-white p-3 rounded-xl shadow-xl bg-gray-600 font-serif" id="start-button">结束转写</button>
+        </div>
+        </div>
+        <!-- 转写内容区 -->
+        <div class="mt-10 mb-10 mr-auto ml-auto p-7 bg-gray-50 shadow-lg rounded-lg font-light" id="result_output"></div>
       </div>
     </div>
   </div>
 </div>
 <script src="hmac-sha256.js"></script>
 <script src="HmacSHA1.js"></script>
-<script src="./md5.js"></script>
 <script src="enc-base64-min.js"></script>
 <script src="jquery.js"></script>
 <script src="index.js"></script>

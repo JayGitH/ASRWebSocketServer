@@ -109,8 +109,8 @@ class IatRecorder {
   }
 
   connectWebsocket () {
-    var url = 'ws://localhost:8000/v1/asr'
-    var urlParam = this.getHandShakeParams('localhost', '8000', '/v1/asr')
+    var url = 'ws://yuntrans.vip:8000/v1/asr'
+    var urlParam = this.getHandShakeParams('yuntrans.vip', '8000', '/v1/asr')
     
     url = `${url}${urlParam}`
     console.log(url)
@@ -188,8 +188,9 @@ class IatRecorder {
         
           console.log("发送结束标识");
           clearInterval(this.handlerInterval)
+          return false
         }
-        return false
+        
       }
       var audioData = buffer.splice(0, 1280)
       if(audioData.length > 0){
@@ -308,7 +309,7 @@ class IatTaste {
       }
     })
     //结束
-    $('.start-button').click(function () {
+    $('#start-button').click(function () {
       if ($(this).text() === self.text.start && !$(this).prop('disabled')) {
         $('#result_output').text('')
         self.resultText = ''
@@ -316,16 +317,16 @@ class IatTaste {
         //console.log("按钮非禁用状态，正常启动" + $(this).prop('disabled'))
       } else {
         //$('.taste-content').css('display', 'none')
-        $('.start-button').attr('disabled', true);
+        $('#start-button').attr('disabled', true);
         self.stop()
         //reset
         this.counterDownTime = 0
         clearTimeout(this.counterDownTimeout)
         buffer = []
-        $('.time-box').removeClass('flex-display-1').css('display', 'none')
-        $('.start-button').text('转写停止中...')
+        $('#time-box').removeClass('flex-display-1').css('display', 'none')
+        $('#start-button').text('转写停止')
         $('.dialect').css('display', 'none')
-        $('.taste-button').css('background', '#8E8E8E')
+        $('#taste_button').css('background', '#8E8E8E')
         $('.dialect-select').css('display', 'inline-block')
         
         //console.log("按钮非禁用状态，正常停止" + $(this).prop('disabled'))
