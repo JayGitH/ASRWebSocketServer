@@ -1,5 +1,6 @@
-# ASR WebSocket Service
-
+# ASR WebSocket Service 
+语音识别websocket服务
+[中文文档](https://450489712.gitbook.io/asr-websocket-service/)
 ## 1. Introduction
 
 this a ASR system using  websockets to connection implement by python 3.7+
@@ -20,7 +21,7 @@ python websocket_server.py
 
 ### 2.1 Client
 
-more detail in [document](https://450489712.gitbook.io/asr-websocket-service/)
+
 
 Here is :
 
