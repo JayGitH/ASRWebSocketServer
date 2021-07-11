@@ -70,7 +70,7 @@ class XunFeiASR:
         """
         count = 0
         # 重试机制
-        while self.websocket and count < 10:
+        while self.websocket and count < 1:
             if not self.websocket.closed:
                 logger.debug(f"sending messages , status is :{body.status}")
                 if body.status in ("start", "partial", "final"):
@@ -87,6 +87,7 @@ class XunFeiASR:
         try:
             async with self.ws_connect as websocket:
                 self.websocket = websocket
+
                 while True:
                     result = await websocket.receive()
 
@@ -115,7 +116,7 @@ class XunFeiASR:
                                 for i in data:
                                     for w in i["cw"]:
                                         result += w["w"]
-
+                            await asyncio.sleep(0.02)
                             await redis.publish(IFLY_ASR_RESULT_CHANNEL,
                                                 TranscriptBody(
                                                     task_id=self.task_id,
@@ -181,8 +182,10 @@ async def deliver_data_from_redis_to_asr_engine():
                             if clinet is None:
                                 clients[task_id]: XunFeiASR = XunFeiASR(task_id)
                                 clinet = clients[task_id]
+                                # t = threading.Thread(target=clients[task_id].recv, args=())
+                                # t.start()
                                 asyncio.create_task(clients[task_id].recv())
-
+                                # await asyncio.gather(asyncio.to_thread(clients[task_id].recv))
 
 
                         logger.debug(f"now client is  {task_id}, read to send message")
@@ -198,7 +201,6 @@ async def deliver_data_from_redis_to_asr_engine():
                                                                    audio_format=audio_format,
                                                                    task_id=task_id))
                             await asyncio.sleep(0.04)
-
 
                     else:
                         await redis.pubsub(IFLY_ASR_RESULT_CHANNEL,

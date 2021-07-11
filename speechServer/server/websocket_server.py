@@ -46,6 +46,9 @@ async def handle(request, ws):
     args = request.args
     session_id = IdWorker().get_id()
     app_key = args.get('appkey', None)
+
+
+
     if app_key is None:
         await ws.close(1000, "Parameters error")
 
@@ -68,7 +71,7 @@ async def handle(request, ws):
                 # 处理接受到的数据
                 message = await asyncio.wait_for(ws.recv(), timeout=WEBSOCKETS_TIME_OUT)
 
-                logger.info(f"{[request.ip]} client-{session_id} send message: {message}")
+                logger.info(f"{[request.ip]} client-{session_id} send message")
 
                 # todo 待加入 帧 ping 支持
                 if message.lower() == "ping":
@@ -81,6 +84,10 @@ async def handle(request, ws):
                     # 处理数据
                     data = json.loads(message)
                     current_language_code = data.get("language_code", None)
+                    language_code_list = json.loads(str(await redis.get("languages_code"), encoding='utf-8'))
+                    logger.debug(f"load language list: {language_code_list}")
+                    channel = language_code_list.get(current_language_code, {"engine": "google"}).get("engine")
+
                     await handle_data_from_client(data, ws, session_id)
 
             except asyncio.TimeoutError:
@@ -90,6 +97,7 @@ async def handle(request, ws):
                 await ws.send(ResponseBody(code=408, message="Connection Timeout", task_id=session_id).json())
                 #
                 if current_language_code:
+
                     await redis.publish(channel, AudioBody(
                         task_id=session_id,
                         language_code=current_language_code,
@@ -269,7 +277,6 @@ async def send_data_to_client_on_one_channel(channel: str):
     logger.info(f"This is channel: {channel}, subscribe redis finished")
 
 
-
 if __name__ == "__main__":
     app.add_task(deliver_data_from_redis_to_client)
-    app.run(host="0.0.0.0", port=8000, debug=True)
+    app.run(host="0.0.0.0", port=8000, workers=4, debug=True)
