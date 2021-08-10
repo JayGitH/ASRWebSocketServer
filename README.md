@@ -1,6 +1,7 @@
 # ASR WebSocket Service 
 语音识别websocket服务
 [中文文档](https://450489712.gitbook.io/asr-websocket-service/)
+该项目只使用python协程导致性能不足，仍有潜力并待改进。该项目正在使用spring cloud alibaba重构，[项目地址](https://github.com/lovemefan/YuntransAsrServer)
 ## 1. Introduction
 
 this a ASR system using  websockets to connection implement by python 3.7+
